@@ -11,12 +11,12 @@ exports.createGameSession = async (req, res) => {
 
     if (typeof username !== "string" || !username.trim()) {
       return res.status(400).json({
-        message: "Username is required"
+        message: "Username is required",
       });
     }
 
     const user = await User.create({
-      username: username.trim()
+      username: username.trim(),
     });
 
     let roomCode;
@@ -31,18 +31,18 @@ exports.createGameSession = async (req, res) => {
       roomCode,
       gameMaster: user._id,
       players: [],
-      status: "waiting"
+      status: "waiting",
     });
 
     return res.status(201).json({
       message: "Game session created successfully",
       user,
-      gameSession
+      gameSession,
     });
   } catch (error) {
     return res.status(500).json({
       message: "Failed to create game session",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -58,23 +58,25 @@ exports.joinGameSession = async (req, res) => {
       !roomCode.trim()
     ) {
       return res.status(400).json({
-        message: "Username and room code are required"
+        message: "Username and room code are required",
       });
     }
 
     const gameSession = await GameSession.findOne({
-      roomCode: roomCode.trim().toUpperCase()
-    }).populate("players.user").populate("gameMaster");
+      roomCode: roomCode.trim().toUpperCase(),
+    })
+      .populate("players.user")
+      .populate("gameMaster");
 
     if (!gameSession) {
       return res.status(404).json({
-        message: "Game session not found"
+        message: "Game session not found",
       });
     }
 
     if (gameSession.status !== "waiting") {
       return res.status(400).json({
-        message: "This game session is not accepting players"
+        message: "This game session is not accepting players",
       });
     }
 
@@ -82,27 +84,27 @@ exports.joinGameSession = async (req, res) => {
 
     const existingUsernames = [
       gameSession.gameMaster.username,
-      ...gameSession.players.map(player => player.user.username)
+      ...gameSession.players.map((player) => player.user.username),
     ];
 
     if (
       existingUsernames.some(
-        name => name.toLowerCase() === normalizedUsername
+        (name) => name.toLowerCase() === normalizedUsername,
       )
     ) {
       return res.status(409).json({
-        message: "Username is already taken in this session"
+        message: "Username is already taken in this session",
       });
     }
 
     const user = await User.create({
-      username: username.trim()
+      username: username.trim(),
     });
 
     gameSession.players.push({
       user: user._id,
       score: 0,
-      connected: true
+      connected: true,
     });
 
     await gameSession.save();
@@ -110,12 +112,12 @@ exports.joinGameSession = async (req, res) => {
     return res.status(200).json({
       message: "Joined game session successfully",
       user,
-      gameSession
+      gameSession,
     });
   } catch (error) {
     return res.status(500).json({
       message: "Failed to join game session",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -125,30 +127,32 @@ exports.getGameSession = async (req, res) => {
     const { roomCode } = req.params;
 
     const gameSession = await GameSession.findOne({
-      roomCode: roomCode.toUpperCase()
+      roomCode: roomCode.toUpperCase(),
     })
       .populate("gameMaster", "username")
       .populate("players.user", "username");
 
     if (!gameSession) {
       return res.status(404).json({
-        message: "Game session not found"
+        message: "Game session not found",
       });
     }
 
     const connectedPlayers = gameSession.players.filter(
-      player => player.connected
+      (player) =>
+        player.connected &&
+        player.user._id.toString() !== gameSession.gameMaster._id.toString(),
     ).length;
-
+    
     return res.status(200).json({
       message: "Game session retrieved successfully",
       gameSession,
-      connectedPlayers
+      connectedPlayers,
     });
   } catch (error) {
     return res.status(500).json({
       message: "Failed to retrieve game session",
-      error: error.message
+      error: error.message,
     });
   }
 };
