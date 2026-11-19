@@ -1,4 +1,3 @@
-
 const User = require("../models/User");
 const GameSession = require("../models/GameSession");
 
@@ -116,6 +115,39 @@ exports.joinGameSession = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: "Failed to join game session",
+      error: error.message
+    });
+  }
+};
+
+exports.getGameSession = async (req, res) => {
+  try {
+    const { roomCode } = req.params;
+
+    const gameSession = await GameSession.findOne({
+      roomCode: roomCode.toUpperCase()
+    })
+      .populate("gameMaster", "username")
+      .populate("players.user", "username");
+
+    if (!gameSession) {
+      return res.status(404).json({
+        message: "Game session not found"
+      });
+    }
+
+    const connectedPlayers = gameSession.players.filter(
+      player => player.connected
+    ).length;
+
+    return res.status(200).json({
+      message: "Game session retrieved successfully",
+      gameSession,
+      connectedPlayers
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to retrieve game session",
       error: error.message
     });
   }
