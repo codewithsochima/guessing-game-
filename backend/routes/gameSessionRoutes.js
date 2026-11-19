@@ -7,8 +7,11 @@ const {
   getGameSession
 } = require("../controllers/gameSessionController");
 
+const { createRound } = require("../controllers/roundController");
+
 router.post("/create", createGameSession);
 router.post("/join", joinGameSession);
 router.get("/:roomCode", getGameSession);
+router.post("/rounds/create", createRound);
 
 module.exports = router;
