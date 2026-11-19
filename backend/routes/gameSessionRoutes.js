@@ -9,7 +9,8 @@ const {
 
 const {
   createRound,
-  startRound
+  startRound,
+  submitGuess
 } = require("../controllers/roundController");
 
 router.post("/create", createGameSession);
@@ -17,5 +18,6 @@ router.post("/join", joinGameSession);
 router.get("/:roomCode", getGameSession);
 router.post("/rounds/create", createRound);
 router.post("/rounds/start", startRound);
+router.post("/rounds/guess", submitGuess);
 
 module.exports = router;
