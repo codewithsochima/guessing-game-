@@ -83,3 +83,82 @@ exports.createRound = async (req, res) => {
     });
   }
 };
+
+exports.startRound = async (req, res) => {
+  try {
+    const { roomCode, userId } = req.body;
+
+    if (
+      typeof roomCode !== "string" ||
+      !roomCode.trim() ||
+      typeof userId !== "string" ||
+      !userId.trim()
+    ) {
+      return res.status(400).json({
+        message: "Room code and user ID are required"
+      });
+    }
+
+    const gameSession = await GameSession.findOne({
+      roomCode: roomCode.trim().toUpperCase()
+    });
+
+    if (!gameSession) {
+      return res.status(404).json({
+        message: "Game session not found"
+      });
+    }
+
+    if (gameSession.gameMaster.toString() !== userId) {
+      return res.status(403).json({
+        message: "Only the game master can start the round"
+      });
+    }
+
+    if (gameSession.status !== "waiting") {
+      return res.status(400).json({
+        message: "Game session is not waiting"
+      });
+    }
+
+    const connectedPlayers = gameSession.players.filter(
+      player => player.connected
+    );
+
+    if (connectedPlayers.length <= 2) {
+      return res.status(400).json({
+        message: "More than two connected players are required to start"
+      });
+    }
+
+    const round = await Round.findOne({
+      gameSession: gameSession._id,
+      status: "waiting"
+    });
+
+    if (!round) {
+      return res.status(404).json({
+        message: "No waiting round found"
+      });
+    }
+
+    round.status = "active";
+    round.startedAt = new Date();
+
+    gameSession.status = "active";
+
+    await round.save();
+    await gameSession.save();
+
+    return res.status(200).json({
+      message: "Round started successfully",
+      round
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to start round",
+      error: error.message
+    });
+  }
+};
+
