@@ -143,13 +143,32 @@ exports.startRound = async (req, res) => {
       });
     }
 
-    round.status = "active";
-    round.startedAt = new Date();
+   round.status = "active";
+round.startedAt = new Date();
 
-    gameSession.status = "active";
+gameSession.status = "active";
 
-    await round.save();
-    await gameSession.save();
+await round.save();
+await gameSession.save();
+
+setTimeout(async () => {
+  try {
+    const currentRound = await Round.findById(round._id);
+
+    if (currentRound && currentRound.status === "active") {
+      currentRound.status = "expired";
+      currentRound.endedAt = new Date();
+
+      await currentRound.save();
+
+      await GameSession.findByIdAndUpdate(gameSession._id, {
+        status: "waiting"
+      });
+    }
+  } catch (error) {
+    console.error("Round timer failed:", error.message);
+  }
+}, round.duration * 1000);
 
     return res.status(200).json({
       message: "Round started successfully",
