@@ -1,5 +1,8 @@
+
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
+const { WebSocketServer } = require("ws");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
@@ -18,13 +21,25 @@ app.get("/", (req, res) => {
   });
 });
 
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+wss.on("connection", (ws) => {
+  ws.send(
+    JSON.stringify({
+      type: "CONNECTED",
+      message: "Connected to Guessing Game server"
+    })
+  );
+});
+
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
     await connectDB();
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
