@@ -31,7 +31,7 @@ const initializeWebSocket = (server) => {
             return;
           }
 
-          ws.roomCode = roomCode.trim();
+          ws.roomCode = roomCode.trim().toUpperCase();
           ws.userId = userId.trim();
 
           const session = await GameSession.findOne({
@@ -149,9 +149,14 @@ const initializeWebSocket = (server) => {
           (item) => item.user.toString() === ws.userId
         );
 
-        if (!player || !player.connected) return;
+        const isGameMaster =
+          session.gameMaster.toString() === ws.userId;
 
-        player.connected = false;
+        if (!player && !isGameMaster) return;
+
+        if (player) {
+          player.connected = false;
+        }
 
         await session.save();
 
@@ -160,6 +165,28 @@ const initializeWebSocket = (server) => {
           userId: ws.userId,
           message: "A player has disconnected"
         });
+
+        const connectedPlayers = session.players.some(
+          (item) => item.connected
+        );
+
+        const gameMasterConnected = [...wss.clients].some(
+          (client) =>
+            client.readyState === WebSocket.OPEN &&
+            client.roomCode === ws.roomCode &&
+            client.userId === session.gameMaster.toString()
+        );
+
+        if (!connectedPlayers && !gameMasterConnected) {
+          await GameSession.findByIdAndDelete(session._id);
+
+          console.log(`Game session ${ws.roomCode} deleted`);
+
+          broadcastToRoom(ws.roomCode, {
+            type: "SESSION_DELETED",
+            message: "The game session has ended because everyone left"
+          });
+        }
 
       } catch (error) {
         console.error("Disconnection error:", error.message);
@@ -194,3 +221,4 @@ module.exports = {
   initializeWebSocket,
   broadcastToRoom
 };
+
