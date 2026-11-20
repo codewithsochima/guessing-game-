@@ -225,7 +225,14 @@ const submitGuess = async (req, res) => {
   try {
     const { roomCode, userId, guess } = req.body;
 
-    if (!roomCode || !userId || !guess) {
+    if (
+      typeof roomCode !== "string" ||
+      !roomCode.trim() ||
+      typeof userId !== "string" ||
+      !userId.trim() ||
+      typeof guess !== "string" ||
+      !guess.trim()
+    ) {
       return res.status(400).json({
         message: "Room code, user ID and guess are required"
       });
@@ -299,6 +306,17 @@ const submitGuess = async (req, res) => {
       isCorrect
     });
 
+    await round.save();
+
+    broadcastToRoom(roomCode, {
+      type: "GUESS_SUBMITTED",
+      userId,
+      guess: guess.trim(),
+      isCorrect,
+      attemptsUsed: playerAttempts.guesses.length,
+      attemptsRemaining: 3 - playerAttempts.guesses.length
+    });
+
     if (isCorrect) {
       round.status = "won";
       round.winner = userId;
@@ -310,6 +328,14 @@ const submitGuess = async (req, res) => {
       await round.save();
       await assignNextGameMaster(session, userId);
 
+      broadcastToRoom(roomCode, {
+        type: "ROUND_WON",
+        winner: userId,
+        answer: round.answer,
+        pointsAwarded: 10,
+        nextGameMaster: session.gameMaster
+      });
+
       return res.status(200).json({
         message: "You have won!",
         winner: userId,
@@ -318,8 +344,6 @@ const submitGuess = async (req, res) => {
         nextGameMaster: session.gameMaster
       });
     }
-
-    await round.save();
 
     return res.status(200).json({
       message: "Wrong guess",
