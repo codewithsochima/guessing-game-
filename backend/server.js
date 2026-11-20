@@ -2,11 +2,11 @@
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
-const { WebSocketServer } = require("ws");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
 const gameSessionRoutes = require("./routes/gameSessionRoutes");
+const { initializeWebSocket } = require("./services/webSocketService");
 
 const app = express();
 
@@ -22,16 +22,8 @@ app.get("/", (req, res) => {
 });
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
 
-wss.on("connection", (ws) => {
-  ws.send(
-    JSON.stringify({
-      type: "CONNECTED",
-      message: "Connected to Guessing Game server"
-    })
-  );
-});
+initializeWebSocket(server);
 
 const PORT = process.env.PORT || 5000;
 
