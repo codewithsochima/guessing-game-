@@ -1,3 +1,4 @@
+
 const GameSession = require("../models/GameSession");
 const Round = require("../models/Round");
 const { broadcastToRoom } = require("../services/webSocketService");
@@ -196,6 +197,13 @@ const startRound = async (req, res) => {
         currentRound.endedAt = new Date();
 
         await currentRound.save();
+
+        broadcastToRoom(roomCode, {
+          type: "ROUND_EXPIRED",
+          answer: currentRound.answer,
+          winner: null,
+          message: "Time is up! The round has ended."
+        });
 
         const currentSession = await GameSession.findById(
           gameSession._id
