@@ -1,4 +1,3 @@
-
 const GameSession = require("../models/GameSession");
 const Round = require("../models/Round");
 const { broadcastToRoom } = require("../services/webSocketService");
@@ -7,7 +6,7 @@ const assignNextGameMaster = async (session, preferredPlayerId = null) => {
   const eligiblePlayers = session.players.filter(
     (player) =>
       player.connected &&
-      player.user.toString() !== session.gameMaster.toString()
+      player.user.toString() !== session.gameMaster.toString(),
   );
 
   if (eligiblePlayers.length === 0) {
@@ -18,7 +17,7 @@ const assignNextGameMaster = async (session, preferredPlayerId = null) => {
 
   if (preferredPlayerId) {
     nextGameMaster = eligiblePlayers.find(
-      (player) => player.user.toString() === preferredPlayerId.toString()
+      (player) => player.user.toString() === preferredPlayerId.toString(),
     );
   }
 
@@ -30,14 +29,14 @@ const assignNextGameMaster = async (session, preferredPlayerId = null) => {
   const previousGameMaster = session.gameMaster;
 
   const previousMasterExists = session.players.some(
-    (player) => player.user.toString() === previousGameMaster.toString()
+    (player) => player.user.toString() === previousGameMaster.toString(),
   );
 
   if (!previousMasterExists) {
     session.players.push({
       user: previousGameMaster,
       score: 0,
-      connected: true
+      connected: true,
     });
   }
 
@@ -52,7 +51,7 @@ const createRound = async (req, res) => {
 
     if (!roomCode || !userId || !question || !answer) {
       return res.status(400).json({
-        message: "Room code, user ID, question and answer are required"
+        message: "Room code, user ID, question and answer are required",
       });
     }
 
@@ -60,30 +59,30 @@ const createRound = async (req, res) => {
 
     if (!gameSession) {
       return res.status(404).json({
-        message: "Game session not found"
+        message: "Game session not found",
       });
     }
 
     if (gameSession.gameMaster.toString() !== userId) {
       return res.status(403).json({
-        message: "Only the game master can create a round"
+        message: "Only the game master can create a round",
       });
     }
 
     if (gameSession.status !== "waiting") {
       return res.status(400).json({
-        message: "Game session is not waiting"
+        message: "Game session is not waiting",
       });
     }
 
     const existingRound = await Round.findOne({
       gameSession: gameSession._id,
-      status: "waiting"
+      status: "waiting",
     });
 
     if (existingRound) {
       return res.status(400).json({
-        message: "A round is already waiting to start"
+        message: "A round is already waiting to start",
       });
     }
 
@@ -95,7 +94,7 @@ const createRound = async (req, res) => {
       Number(roundDuration) > 3600
     ) {
       return res.status(400).json({
-        message: "Duration must be between 1 and 3600 seconds"
+        message: "Duration must be between 1 and 3600 seconds",
       });
     }
 
@@ -103,16 +102,16 @@ const createRound = async (req, res) => {
       gameSession: gameSession._id,
       question,
       answer,
-      duration: Number(roundDuration)
+      duration: Number(roundDuration),
     });
 
     return res.status(201).json({
       message: "Round created successfully",
-      round
+      round,
     });
   } catch (error) {
     return res.status(500).json({
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -123,7 +122,7 @@ const startRound = async (req, res) => {
 
     if (!roomCode || !userId) {
       return res.status(400).json({
-        message: "Room code and user ID are required"
+        message: "Room code and user ID are required",
       });
     }
 
@@ -131,42 +130,42 @@ const startRound = async (req, res) => {
 
     if (!gameSession) {
       return res.status(404).json({
-        message: "Game session not found"
+        message: "Game session not found",
       });
     }
 
     if (gameSession.gameMaster.toString() !== userId) {
       return res.status(403).json({
-        message: "Only the game master can start a round"
+        message: "Only the game master can start a round",
       });
     }
 
     if (gameSession.status !== "waiting") {
       return res.status(400).json({
-        message: "Game session is not waiting"
+        message: "Game session is not waiting",
       });
     }
 
     const connectedPlayers = gameSession.players.filter(
       (player) =>
         player.connected &&
-        player.user.toString() !== gameSession.gameMaster.toString()
+        player.user.toString() !== gameSession.gameMaster.toString(),
     );
 
     if (connectedPlayers.length <= 2) {
       return res.status(400).json({
-        message: "More than two connected players are required to start"
+        message: "More than two connected players are required to start",
       });
     }
 
     const round = await Round.findOne({
       gameSession: gameSession._id,
-      status: "waiting"
+      status: "waiting",
     });
 
     if (!round) {
       return res.status(404).json({
-        message: "No waiting round found"
+        message: "No waiting round found",
       });
     }
 
@@ -182,7 +181,7 @@ const startRound = async (req, res) => {
       type: "ROUND_STARTED",
       question: round.question,
       duration: round.duration,
-      startedAt: round.startedAt
+      startedAt: round.startedAt,
     });
 
     setTimeout(async () => {
@@ -202,12 +201,10 @@ const startRound = async (req, res) => {
           type: "ROUND_EXPIRED",
           answer: currentRound.answer,
           winner: null,
-          message: "Time is up! The round has ended."
+          message: "Time is up! The round has ended.",
         });
 
-        const currentSession = await GameSession.findById(
-          gameSession._id
-        );
+        const currentSession = await GameSession.findById(gameSession._id);
 
         if (currentSession) {
           currentSession.status = "waiting";
@@ -220,11 +217,11 @@ const startRound = async (req, res) => {
 
     return res.status(200).json({
       message: "Round started successfully",
-      round
+      round,
     });
   } catch (error) {
     return res.status(500).json({
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -242,7 +239,7 @@ const submitGuess = async (req, res) => {
       !guess.trim()
     ) {
       return res.status(400).json({
-        message: "Room code, user ID and guess are required"
+        message: "Room code, user ID and guess are required",
       });
     }
 
@@ -250,51 +247,51 @@ const submitGuess = async (req, res) => {
 
     if (!session) {
       return res.status(404).json({
-        message: "Game session not found"
+        message: "Game session not found",
       });
     }
 
     if (session.status !== "active") {
       return res.status(400).json({
-        message: "There is no active round"
+        message: "There is no active round",
       });
     }
 
     if (session.gameMaster.toString() === userId) {
       return res.status(403).json({
-        message: "The game master cannot submit guesses"
+        message: "The game master cannot submit guesses",
       });
     }
 
     const player = session.players.find(
-      (item) => item.user.toString() === userId && item.connected
+      (item) => item.user.toString() === userId && item.connected,
     );
 
     if (!player) {
       return res.status(403).json({
-        message: "You are not a connected player in this session"
+        message: "You are not a connected player in this session",
       });
     }
 
     const round = await Round.findOne({
       gameSession: session._id,
-      status: "active"
+      status: "active",
     });
 
     if (!round) {
       return res.status(404).json({
-        message: "No active round found"
+        message: "No active round found",
       });
     }
 
     let playerAttempts = round.attempts.find(
-      (item) => item.player.toString() === userId
+      (item) => item.player.toString() === userId,
     );
 
     if (!playerAttempts) {
       round.attempts.push({
         player: userId,
-        guesses: []
+        guesses: [],
       });
 
       playerAttempts = round.attempts[round.attempts.length - 1];
@@ -302,7 +299,7 @@ const submitGuess = async (req, res) => {
 
     if (playerAttempts.guesses.length >= 3) {
       return res.status(400).json({
-        message: "You have used all your attempts"
+        message: "You have used all your attempts",
       });
     }
 
@@ -311,7 +308,7 @@ const submitGuess = async (req, res) => {
 
     playerAttempts.guesses.push({
       value: guess.trim(),
-      isCorrect
+      isCorrect,
     });
 
     await round.save();
@@ -322,7 +319,7 @@ const submitGuess = async (req, res) => {
       guess: guess.trim(),
       isCorrect,
       attemptsUsed: playerAttempts.guesses.length,
-      attemptsRemaining: 3 - playerAttempts.guesses.length
+      attemptsRemaining: 3 - playerAttempts.guesses.length,
     });
 
     if (isCorrect) {
@@ -337,11 +334,19 @@ const submitGuess = async (req, res) => {
       await assignNextGameMaster(session, userId);
 
       broadcastToRoom(roomCode, {
+        type: "SCORES_UPDATED",
+        scores: session.players.map((player) => ({
+          userId: player.user.toString(),
+          score: player.score,
+        })),
+      });
+      
+      broadcastToRoom(roomCode, {
         type: "ROUND_WON",
         winner: userId,
         answer: round.answer,
         pointsAwarded: 10,
-        nextGameMaster: session.gameMaster
+        nextGameMaster: session.gameMaster,
       });
 
       return res.status(200).json({
@@ -349,18 +354,18 @@ const submitGuess = async (req, res) => {
         winner: userId,
         answer: round.answer,
         pointsAwarded: 10,
-        nextGameMaster: session.gameMaster
+        nextGameMaster: session.gameMaster,
       });
     }
 
     return res.status(200).json({
       message: "Wrong guess",
       attemptsUsed: playerAttempts.guesses.length,
-      attemptsRemaining: 3 - playerAttempts.guesses.length
+      attemptsRemaining: 3 - playerAttempts.guesses.length,
     });
   } catch (error) {
     return res.status(500).json({
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -368,5 +373,5 @@ const submitGuess = async (req, res) => {
 module.exports = {
   createRound,
   startRound,
-  submitGuess
+  submitGuess,
 };
