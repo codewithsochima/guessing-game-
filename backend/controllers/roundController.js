@@ -1,5 +1,6 @@
 const GameSession = require("../models/GameSession");
 const Round = require("../models/Round");
+const { broadcastToRoom } = require("../services/webSocketService");
 
 const assignNextGameMaster = async (session, preferredPlayerId = null) => {
   const eligiblePlayers = session.players.filter(
@@ -175,6 +176,13 @@ const startRound = async (req, res) => {
 
     await round.save();
     await gameSession.save();
+
+    broadcastToRoom(roomCode, {
+      type: "ROUND_STARTED",
+      question: round.question,
+      duration: round.duration,
+      startedAt: round.startedAt
+    });
 
     setTimeout(async () => {
       try {
