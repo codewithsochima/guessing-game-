@@ -1,5 +1,5 @@
-
 const { WebSocketServer, WebSocket } = require("ws");
+const GameSession = require("../models/GameSession");
 
 let wss;
 
@@ -9,7 +9,7 @@ const initializeWebSocket = (server) => {
   wss.on("connection", (ws) => {
     console.log("New WebSocket connection");
 
-    ws.on("message", (data) => {
+    ws.on("message", async (data) => {
       try {
         const message = JSON.parse(data.toString());
 
@@ -33,6 +33,44 @@ const initializeWebSocket = (server) => {
 
           ws.roomCode = roomCode.trim();
           ws.userId = userId.trim();
+
+          const session = await GameSession.findOne({
+            roomCode: ws.roomCode
+          });
+
+          if (!session) {
+            ws.send(JSON.stringify({
+              type: "ERROR",
+              message: "Game session not found"
+            }));
+            return;
+          }
+
+          const player = session.players.find(
+            (item) => item.user.toString() === ws.userId
+          );
+
+          const isGameMaster =
+            session.gameMaster.toString() === ws.userId;
+
+          if (!player && !isGameMaster) {
+            ws.send(JSON.stringify({
+              type: "ERROR",
+              message: "You are not a member of this game session"
+            }));
+            return;
+          }
+
+          if (player && !player.connected) {
+            player.connected = true;
+            await session.save();
+
+            broadcastToRoom(ws.roomCode, {
+              type: "PLAYER_RECONNECTED",
+              userId: ws.userId,
+              message: "A player has reconnected"
+            });
+          }
 
           ws.send(JSON.stringify({
             type: "ROOM_JOINED",
@@ -76,15 +114,56 @@ const initializeWebSocket = (server) => {
       } catch (error) {
         console.error("WebSocket message error:", error.message);
 
-        ws.send(JSON.stringify({
-          type: "ERROR",
-          message: "Invalid message format"
-        }));
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "ERROR",
+            message: "Invalid message format"
+          }));
+        }
       }
     });
 
-    ws.on("close", () => {
+    ws.on("close", async () => {
       console.log("WebSocket connection closed");
+
+      try {
+        if (!ws.roomCode || !ws.userId) return;
+
+        const anotherConnection = [...wss.clients].some(
+          (client) =>
+            client !== ws &&
+            client.readyState === WebSocket.OPEN &&
+            client.roomCode === ws.roomCode &&
+            client.userId === ws.userId
+        );
+
+        if (anotherConnection) return;
+
+        const session = await GameSession.findOne({
+          roomCode: ws.roomCode
+        });
+
+        if (!session) return;
+
+        const player = session.players.find(
+          (item) => item.user.toString() === ws.userId
+        );
+
+        if (!player || !player.connected) return;
+
+        player.connected = false;
+
+        await session.save();
+
+        broadcastToRoom(ws.roomCode, {
+          type: "PLAYER_DISCONNECTED",
+          userId: ws.userId,
+          message: "A player has disconnected"
+        });
+
+      } catch (error) {
+        console.error("Disconnection error:", error.message);
+      }
     });
 
     ws.on("error", (error) => {
@@ -101,13 +180,6 @@ const broadcastToRoom = (roomCode, message) => {
   console.log("Broadcasting to room:", roomCode);
 
   wss.clients.forEach((client) => {
-    console.log(
-      "CLIENT ROOM:",
-      client.roomCode,
-      "TARGET ROOM:",
-      roomCode
-    );
-
     if (
       client.readyState === WebSocket.OPEN &&
       client.roomCode === roomCode
